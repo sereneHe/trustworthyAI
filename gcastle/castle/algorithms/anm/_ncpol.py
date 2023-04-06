@@ -5,6 +5,7 @@ from itertools import combinations
 from sklearn.gaussian_process import GaussianProcessRegressor
 from castle.common import BaseLearner, Tensor
 from castle.common.independence_tests import hsic_test
+from ncpol2sdpa import*
 
 
 class NCPOLR(object):
@@ -99,7 +100,7 @@ class NCPOLR(object):
       None
         
     def estimate(self, x, y):
-        """Fit NCPOP regression model and predict x.
+        """Fit NCPOP regression model and predict y.
         Parameters
         ----------
         x : array
@@ -112,7 +113,45 @@ class NCPOLR(object):
             regression predict values of x
         """
 
-        call the code with Quan
-        y_predict = 0
+        ## Insert ncpop
+        # Y=[1,2,3]
+        # X=[1,2,3]
+        T=3
+        level=1
+
+        # Decision Variables
+        G = generate_operators("G", n_vars=1, hermitian=True, commutative=True)[0]
+        f = generate_operators("f", n_vars=T, hermitian=True, commutative=True)
+        n = generate_operators("m", n_vars=T, hermitian=True, commutative=True)
+
+        # Objective
+        obj = sum((y[i]-f[i])**2 for i in range(T)) + 0.5*sum(f[i]**2 for i in range(T))
+        # Constraints
+        ine1 = [f[i] - G*x[i] - n[i] for i in range(T)]
+        ine2 = [-f[i] + G*x[i] + n[i] for i in range(T)]
+        ines = ine1+ine2
+
+        # Solve the NCPO
+        sdp = SdpRelaxation(variables = flatten([G,f,n]),verbose = 1)
+        sdp.get_relaxation(level, objective=obj, inequalities=ines)
+        sdp.solve(solver='mosek')
+        #sdp.solve(solver='sdpa', solverparameters={"executable":"sdpa_gmp","executable": "C:/Users/zhouq/Documents/sdpa7-windows/sdpa.exe"})
+        print(sdp.primal, sdp.dual, sdp.status)
+
+        if(sdp.status != 'infeasible'):
+            print('ok.')
+        else:
+            print('Cannot find feasible solution.')
+            
+        print(sdp[n[0]])
+        
+        
+        # tmp=SimCom(Y,T,level)
+        #     if (tmp):
+        #         Z[i,j] = tmp
+        #         N[i,j] = n
+        #         break
+        # Zdf=pd.DataFrame(Z)
+        # Zdf.to_csv('ncpop100.csv',index=False) #,index=False
 
         return y_predict
