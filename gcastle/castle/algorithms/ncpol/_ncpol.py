@@ -99,16 +99,16 @@ class NCPOLR(object):
     def __init__(self, **kwargs):
         super(NCPOLR, self).__init__()
 
-    def estimate(self, x, y):
+    def estimate(self, X, Y):
         """Fit Estimator based on NCPOP Regressor model and predict y or produce residuals.
         The module converts a noncommutative optimization problem provided in SymPy
         format to an SDPA semidefinite programming problem.
 
         Parameters
         ----------
-        x : array
+        X : array
             Variable seen as cause
-        y: array
+        Y: array
             Variable seen as effect
 
         Returns
@@ -117,35 +117,49 @@ class NCPOLR(object):
             regression predict values of y or residuals
         """
         
-        T = len(y)
+        T = len(Y)
         level = 1
+        
         # Decision Variables
-        G = generate_operators("G", n_vars=1, hermitian=True, commutative=True)[0]
-        f = generate_operators("f", n_vars=T, hermitian=True, commutative=True)
-        n = generate_operators("m", n_vars=T, hermitian=True, commutative=True)
+        # f=G*x+n以前是最小化n**2，现在就直接最小化p
+        # G是系数
+        G = generate_operators("G", n_vars=1, hermitian=True, commutative=False)[0]
+        # f是y的估计值
+        f = generate_operators("f", n_vars=T, hermitian=True, commutative=False)
+        # n是残差
+        n = generate_operators("m", n_vars=T, hermitian=True, commutative=False)
+        # p是n的绝对值
+        p = generate_operators("p", n_vars=T, hermitian=True, commutative=False)
 
         # Objective
-        obj = sum((y[i]-f[i])**2 for i in range(T)) + 0.5*sum(f[i]**2 for i in range(T))
-
+        obj = sum((Y[i]-f[i])**2 for i in range(T)) + 0.5*sum(p[i] for i in range(T))
+        
         # Constraints
-        ine1 = [f[i] - G*x[i] - n[i] for i in range(T)]
-        ine2 = [-f[i] + G*x[i] + n[i] for i in range(T)]
-        ines = ine1+ine2
+        ine1 = [f[i] - G*X[i] - n[i] for i in range(T)]
+        ine2 = [-f[i] + G*X[i] + n[i] for i in range(T)]
+        # fp和n的关系通过加新的限制条件p>n 和p>-n来实现
+        ine3 = [p[i]-n[i] for i in range(T)]
+        ine4 = [p[i]+n[i] for i in range(T)]
+        ines = ine1+ine2+ine3+ine4
 
         # Solve the NCPO
-        sdp = SdpRelaxation(variables = flatten([G,f,n]),verbose = 1)
+        sdp = SdpRelaxation(variables = flatten([G,f,n,p]),verbose = 1)
         sdp.get_relaxation(level, objective=obj, inequalities=ines)
         sdp.solve(solver='mosek')
         #sdp.solve(solver='sdpa', solverparameters={"executable":"sdpa_gmp","executable": "C:/Users/zhouq/Documents/sdpa7-windows/sdpa.exe"})
         print(sdp.primal, sdp.dual, sdp.status)
 
         if(sdp.status != 'infeasible'):
-            print('ok.') 
-            y_predict = [sdp[n[i]] for i in range(T)] 
+            print('ok.')
+            est_noise = []
+            for i in range(T):
+                est_noise.append(sdp[n[i]])
+            print(est_noise)
+            return est_noise
         else:
             print('Cannot find feasible solution.')
+            return
 
-        return np.asarray(y_predict)
 
 
 class ANM_NCPOP(BaseLearner):
