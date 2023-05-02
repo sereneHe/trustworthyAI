@@ -1,3 +1,8 @@
+!wget https://bootstrap.pypa.io/pip/3.6/get-pip.py
+!python3 get-pip.py
+!pip3 install gcastle
+
+
 # coding: utf-8
 ## Xiaoyu He ##
 
@@ -5,20 +10,20 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import scale
 from itertools import combinations
-from castle.common import BaseLearner, Tensor
-from castle.common.independence_tests import hsic_test
+from castle.common import BaseLearner
+from independence_tests import hsic_test
 from inputlds import*
 from functions import*
 from ncpol2sdpa import*
+from base import*
 from math import sqrt
 
 class NCPOLR(object):
     """Estimator based on NCPOP Regressor
 
-    See Also
-    --------
-    import sys
-    sys.path.append("/home/zhouqua1/NCPOP") 
+    References
+    ----------
+    Quan Zhou https://github.com/Quan-Zhou/Proper-Learning-of-LDS/blob/master/ncpop/functions.py
     
     Examples
     --------
@@ -28,72 +33,6 @@ class NCPOLR(object):
     >>> ncpolr = NCPOLR()
     >>> y_pred = ncpolr.estimate(X, Y)
     >>> print(y_pred)
-    The problem has 7 commuting variables
-    Calculating block structure...
-    Estimated number of SDP variables: 35
-    Generating moment matrix...
-    Reduced number of SDP variables: 35 35 (done: 102.86%, ETA 00:00:-0.0)
-    Processing 6/6 constraints...
-    Problem
-      Name                   :                 
-      Objective sense        : minimize        
-      Type                   : CONIC (conic optimization problem)
-      Constraints            : 35              
-      Affine conic cons.     : 0               
-      Disjunctive cons.      : 0               
-      Cones                  : 0               
-      Scalar variables       : 0               
-      Matrix variables       : 1               
-      Integer variables      : 0               
-
-    Optimizer started.
-    Presolve started.
-    Linear dependency checker started.
-    Linear dependency checker terminated.
-    Eliminator started.
-    Freed constraints in eliminator : 0
-    Eliminator terminated.
-    Eliminator - tries                  : 1                 time                   : 0.00            
-    Lin. dep.  - tries                  : 1                 time                   : 0.00            
-    Lin. dep.  - number                 : 0               
-    Presolve terminated. Time: 0.02    
-    Problem
-      Name                   :                 
-      Objective sense        : minimize        
-      Type                   : CONIC (conic optimization problem)
-      Constraints            : 35              
-      Affine conic cons.     : 0               
-      Disjunctive cons.      : 0               
-      Cones                  : 0               
-      Scalar variables       : 0               
-      Matrix variables       : 1               
-      Integer variables      : 0               
-
-    Optimizer  - threads                : 4               
-    Optimizer  - solved problem         : the primal      
-    Optimizer  - Constraints            : 35
-    Optimizer  - Cones                  : 0
-    Optimizer  - Scalar variables       : 0                 conic                  : 0               
-    Optimizer  - Semi-definite variables: 1                 scalarized             : 105             
-    Factor     - setup time             : 0.00              dense det. time        : 0.00            
-    Factor     - ML order time          : 0.00              GP order time          : 0.00            
-    Factor     - nonzeros before factor : 630               after factor           : 630             
-    Factor     - dense dim.             : 0                 flops                  : 2.28e+04        
-    ITE PFEAS    DFEAS    GFEAS    PRSTATUS   POBJ              DOBJ              MU       TIME  
-    0   6.0e+00  1.0e+00  2.0e+00  0.00e+00   1.000000000e+00   0.000000000e+00   1.0e+00  0.02  
-    1   1.1e+00  1.9e-01  5.4e-01  -6.30e-01  3.150886775e+00   4.141925062e+00   1.9e-01  0.03  
-    2   1.1e-01  1.8e-02  2.4e-02  2.54e-01   8.273194125e+00   8.578944991e+00   1.8e-02  0.03  
-    3   1.8e-02  2.9e-03  1.6e-03  7.16e-01   9.187200810e+00   9.236036817e+00   2.9e-03  0.03  
-    4   1.5e-03  2.5e-04  3.8e-05  1.02e+00   9.318520144e+00   9.321884971e+00   2.5e-04  0.03  
-    5   1.3e-04  2.2e-05  9.5e-07  1.02e+00   9.331938540e+00   9.332204721e+00   2.2e-05  0.03  
-    6   4.2e-06  7.1e-07  5.4e-09  1.01e+00   9.333286910e+00   9.333295069e+00   7.1e-07  0.03  
-    7   4.2e-08  7.0e-09  5.3e-12  1.00e+00   9.333332864e+00   9.333332944e+00   7.0e-09  0.03  
-    8   1.0e-10  2.7e-11  6.2e-16  1.00e+00   9.333333332e+00   9.333333332e+00   1.7e-11  0.03  
-    Optimizer terminated. Time: 0.03    
-
-    4.6666666678038755 4.666666667613962 optimal
-    ok.
-    [0.04446952 0.08893904 0.13340856]
     """
     
     def __init__(self, **kwargs):
@@ -119,7 +58,7 @@ class NCPOLR(object):
         
         T = len(Y)
         level = 1
-        
+    
         # Decision Variables
         # f=G*x+n以前是最小化n**2，现在就直接最小化p
         # G是系数
@@ -159,7 +98,6 @@ class NCPOLR(object):
         else:
             print('Cannot find feasible solution.')
             return
-
 
 
 class ANM_NCPOP(BaseLearner):
@@ -208,7 +146,7 @@ class ANM_NCPOP(BaseLearner):
     >>> print(met.metrics)
     """
 
-    def __init__(self, alpha=0.05):
+    def __init__(self, columns=None, alpha=0.05):
         super(ANM_NCPOP, self).__init__()
         self.alpha = alpha
 
@@ -236,7 +174,7 @@ class ANM_NCPOP(BaseLearner):
         self.regressor = regressor
         
         # create learning model and ground truth model
-        data = Tensor(data, columns=columns)
+        data = Tensor(data)
 
         node_num = data.shape[1]
         self.causal_matrix = Tensor(np.zeros((node_num, node_num)),
@@ -301,11 +239,9 @@ class ANM_NCPOP(BaseLearner):
         x = scale(x)
         y = scale(y)
         
-        y_predict = regressor.estimate(x, y)
-        flag = test_method(np.asarray(y - y_predict).reshape((-1, 1)), np.asarray(x).reshape((-1, 1)), alpha=self.alpha)
-        # print(flag)
+        y_res = regressor.estimate(x, y)
+        flag = test_method(np.asarray(y_res).reshape((-1, 1)), np.asarray(x).reshape((-1, 1)), alpha=self.alpha)
+        print(flag)
         
         return flag
-
-
 
