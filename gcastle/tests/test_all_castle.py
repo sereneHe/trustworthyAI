@@ -273,6 +273,32 @@ class TestCastleAll(unittest.TestCase):
             except Exception:
                 self.error_params.append(d)
                 print(traceback.format_exc())
+     
+     def test_ncpol(self):
+     """test NCPOP+ANM"""
+
+        logging.info(f"{'=' * 20}Start Testing ANM_NCPOP{'=' * 20}")
+        try:
+            DataSize = range(90,2011,20)
+            df = pd.DataFrame(columns=['fdr', 'tpr', 'fpr', 'shd', 'nnz', 'precision', 'recall', 'F1', 'gscore'])
+            for i in DataSize:
+                data = self.x
+                true_dag = self.y
+                anmNCPO = ANM_NCPOP(alpha=0.05)
+                anmNCPO.learn(data=data)
+
+                # plot predict_dag and true_dag
+                sname = 'Result_linearGauss_6_15/ncpol_result_'+str(i)
+                GraphDAG(anmNCPO.causal_matrix, true_dag, show=False, save_name=sname)
+                met = MetricsDAG(anmNCPO.causal_matrix, true_dag)
+                print('datasize=' + str(i) + ' is done!')
+                #mm = pd.DataFrame(pd.DataFrame([mm]).append([met.metrics]).dropna(axis = 0, how ='any'))#.drop_duplicates(inplace= True)
+                df = pd.concat([df, pd.DataFrame([met.metrics])])
+            df1=df.assign(DataSize = DataSize)
+            df1.to_csv('Result_linearGauss_6_15/summary_6nodes_15edges.csv', index=False)
+            print(df1)
+        except Exception:
+            logging.error(traceback.format_exc())
 
 
 if __name__ == '__main__':
